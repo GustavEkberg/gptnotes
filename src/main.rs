@@ -1,5 +1,4 @@
 use clap::{Arg, Command};
-use db::{get_notes_folder, set_notes_folder};
 use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
@@ -8,6 +7,7 @@ use structs::GptResponse;
 use tokio::fs::create_dir_all;
 
 use crate::content::extract_url_content;
+use crate::db::get_config;
 
 mod content;
 mod db;
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Arg::new("prompt")
                 .long("prompt")
                 .help("The input prompt for the ChatGPT API")
-                .required(false),
+                .required(true),
             Arg::new("url")
                 .long("url")
                 .help("The relevant URL for the note being taken")
@@ -39,43 +39,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .long("category")
                 .help("The category of the note being taken")
                 .required(false),
-            Arg::new("api_key")
-                .long("api_key")
-                .help("Set the key to openai's api. This needs to be set before taking any notes")
-                .required(false),
-            Arg::new("notes_folder")
-                .long("notes_folder")
-                .help("Set the root folder of your notes")
-                .required(false),
         ])
         .get_matches();
 
-    let new_api_key = matches.get_one::<String>("api_key");
+    let config = get_config().await?;
 
-    let api_key = if let Some(new_api_key) = new_api_key {
-        db::set_api_key(new_api_key.to_string()).await?;
-        Some(new_api_key.to_string())
-    } else {
-        db::get_api_key().await?
-    };
+    let api_key = config.api_key;
 
     if api_key.is_none() {
-        println!("Please set the api_key before taking any notes");
+        println!("Please set the api_key in ~/.gptnotes.json before taking any notes");
         return Ok(());
     }
 
     let api_key = api_key.unwrap();
 
-    if let Some(folder) = matches.get_one::<String>("notes_folder") {
-        set_notes_folder(folder.to_string()).await?;
-        return Ok(());
-    };
-
-    let notes_folder = if let Some(folder) = get_notes_folder().await? {
-        folder.to_string()
-    } else {
-        "./".to_string()
-    };
+    let notes_folder = config.notes_folder;
 
     let prompt = matches.get_one::<String>("prompt");
     let relevant_url = if let Some(url) = matches.get_one::<String>("url") {

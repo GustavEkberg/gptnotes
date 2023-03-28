@@ -1,46 +1,35 @@
-use std::str::from_utf8;
-static DB: &str = "file://.db";
+use dirs::home_dir;
+use std::{error::Error, io::ErrorKind};
 
-pub async fn get_api_key() -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let db = surrealdb::Datastore::new(DB).await?;
+use serde::{Deserialize, Serialize};
+use tokio::fs::{read_to_string, write};
 
-    let mut transaction = db.transaction(false, false).await?;
-    let value = transaction.get("api_key").await?;
-    if value.is_none() {
-        Ok(None)
-    } else {
-        Ok(Some(from_utf8(&value.unwrap()).unwrap().to_string()))
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Config {
+    pub api_key: Option<String>,
+    pub notes_folder: String,
 }
 
-pub async fn set_api_key(api_key: String) -> Result<(), Box<dyn std::error::Error>> {
-    let db = surrealdb::Datastore::new(DB).await?;
+pub async fn get_config() -> Result<Config, Box<dyn Error>> {
+    let mut config_file_location = home_dir().unwrap();
+    config_file_location.push(".gptnotes.json");
+    let file = match read_to_string(&config_file_location).await {
+        Ok(config) => config,
+        Err(error) => match error.kind() {
+            ErrorKind::NotFound => {
+                let config = Config {
+                    api_key: None,
+                    notes_folder: "./".to_string(),
+                };
+                let config = serde_json::to_string(&config)?;
+                write(config_file_location, config.clone()).await?;
+                config
+            }
+            _ => panic!("Error reading config file: {}", error),
+        },
+    };
 
-    let mut transaction = db.transaction(true, true).await?;
-    transaction.set("api_key", api_key).await?;
-    transaction.commit().await?;
+    let config: Config = serde_json::from_str(file.as_str()).unwrap();
 
-    Ok(())
-}
-
-pub async fn get_notes_folder() -> Result<Option<String>, Box<dyn std::error::Error>> {
-    let db = surrealdb::Datastore::new(DB).await?;
-
-    let mut transaction = db.transaction(false, false).await?;
-    let value = transaction.get("notes_folder").await?;
-    if value.is_none() {
-        Ok(None)
-    } else {
-        Ok(Some(from_utf8(&value.unwrap()).unwrap().to_string()))
-    }
-}
-
-pub async fn set_notes_folder(api_key: String) -> Result<(), Box<dyn std::error::Error>> {
-    let db = surrealdb::Datastore::new(DB).await?;
-
-    let mut transaction = db.transaction(true, true).await?;
-    transaction.set("notes_folder", api_key).await?;
-    transaction.commit().await?;
-
-    Ok(())
+    Ok(config)
 }
