@@ -7,6 +7,9 @@ use std::path::Path;
 use structs::GptResponse;
 use tokio::fs::create_dir_all;
 
+use crate::content::extract_url_content;
+
+mod content;
 mod db;
 mod structs;
 
@@ -90,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let category = matches.get_one::<String>("category");
 
-    let full_prompt = generate_prompt(&prompt, &relevant_url);
+    let full_prompt = generate_prompt(&prompt, &relevant_url).await;
     let response = request_chatgpt(&full_prompt, api_key).await?;
 
     let note = generate_note(response, &prompt, &relevant_url);
@@ -99,13 +102,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
+async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
     let mut full_prompt = format!(
-        "In markdown format, write summarizing notes, explaining how to do the follow. --- {prompt}"
+        "In markdown format, write summarizing notes, explaining how to do the following: \"{prompt}\""
     );
 
     if let Some(url) = url {
-        full_prompt = format!("--- {} Related URL: {}", prompt, url);
+        if let Some(content) = extract_url_content(url).await.unwrap() {
+            full_prompt = format!(
+                "{full_prompt}. Use this information when creating the note, if relevant: --- {} ",
+                content
+            );
+        } else {
+            println!("Could not extract content from url");
+        }
     }
     full_prompt
 }
