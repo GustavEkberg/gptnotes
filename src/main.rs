@@ -4,6 +4,7 @@ use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use tokio::fs::create_dir_all;
 
 mod db;
 mod structs;
@@ -86,11 +87,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let prompt = prompt.unwrap();
 
+    let category = matches.get_one::<String>("category");
+
     let full_prompt = generate_prompt(&prompt, &relevant_url);
     let response = request_chatgpt(&full_prompt, api_key).await?;
 
     let note = generate_note(response, &prompt, &relevant_url);
-    save_to_md_file(note, notes_folder).unwrap();
+    save_to_md_file(note, notes_folder, category).await.unwrap();
 
     Ok(())
 }
@@ -165,8 +168,19 @@ fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Not
     }
 }
 
-fn save_to_md_file(note: Note, notes_folder: String) -> std::io::Result<()> {
-    let file_path = format!("{}/{}", notes_folder, note.file);
+async fn save_to_md_file(
+    note: Note,
+    notes_folder: String,
+    category: Option<&String>,
+) -> std::io::Result<()> {
+    let file_path = if let Some(category) = category {
+        create_dir_all(format!("{}/{}", notes_folder, category))
+            .await
+            .unwrap();
+        format!("{}/{}/{}", notes_folder, category, note.file)
+    } else {
+        format!("{}/{}", notes_folder, note.file)
+    };
     let path = Path::new(&file_path);
     let mut file = File::create(&path)?;
 
