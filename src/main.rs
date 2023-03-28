@@ -4,6 +4,7 @@ use serde_json::json;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use structs::GptResponse;
 use tokio::fs::create_dir_all;
 
 mod db;
@@ -125,7 +126,7 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
     let client = reqwest::Client::new();
     let chatgpt_api_url = "https://api.openai.com/v1/chat/completions";
 
-    let response = client
+    let response: GptResponse = client
         .post(chatgpt_api_url)
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {}", api_key).as_str())
@@ -133,20 +134,17 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
         .send()
         .await
         .unwrap()
-        .text()
+        .json()
         .await
         .unwrap();
 
-    // Extract the generated text from the response
-    let json: serde_json::Value = serde_json::from_str(&response).unwrap();
-    if let Some(error) = json["error"]["message"].as_str() {
-        Err(error.to_string())
-    } else {
-        Ok(json["choices"][0]["message"]["content"]
-            .as_str()
-            .expect("No response from ChatGPT")
-            .to_string())
-    }
+    Ok(response
+        .choices
+        .first()
+        .expect("No choices from ChatGPT")
+        .message
+        .content
+        .clone())
 }
 
 fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Note {
