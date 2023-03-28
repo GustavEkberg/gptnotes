@@ -15,16 +15,21 @@ gptnotes --prompt "creating local cloudflare tunnel" --url "https://developers.c
 
 Will createa a file called `creating_local_cloudflare_tunnel.md` in the `notes_path` folder:
 ```
-To create a local Cloudflare tunnel, follow these steps:
-1. Download and install Cloudflared for your system.
-2. Authenticate Cloudflared by running `cloudflared tunnel login`.
-3. Create a tunnel by running `cloudflared tunnel create <NAME>`, which generates a tunnel credentials file and a subdomain of .cfargotunnel.com.
-4. Create a configuration file with specific fields for connecting an application or network.
-5. Assign a CNAME record that points traffic to your tunnel subdomain.
-6. Run the tunnel by running `cloudflared tunnel run <UUID or NAME>`.
-7. Check the tunnel configuration by running `cloudflared tunnel info <UUID or NAME>`.
+# Summary: Creating a Local Cloudflare Tunnel
 
-Related URL: [To create a local Cloudflare tunnel, follow these steps:](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/local/#set-up-a-tunnel-locally-cli-setup)
+To create a local Cloudflare tunnel, follow these steps:
+
+1. Download and install Cloudflared for your OS by visiting the downloads page on Cloudflare's website.
+2. Authenticate cloudflared by running `cloudflared tunnel login` in the terminal.
+3. Create a tunnel and name it by running `cloudflared tunnel create <NAME>`.
+4. Create a configuration file in your `~/.cloudflared` directory and add necessary fields.
+5. Assign a CNAME record to your tunnel subdomain by running `cloudflared tunnel route dns <UUID or NAME> <hostname>`.
+6. Run the tunnel by running `cloudflared tunnel run <UUID or NAME>`.
+7. Check information on the tunnel you just created by running `cloudflared tunnel info <UUID or NAME>`. 
+
+Note that you must add a website to Cloudflare and change your domain nameservers to Cloudflare before starting. Additionally, you may need to install cloudflared via your preferred package manager or build it from source. Finally, Cloudflare Tunnel can be installed as a system service or launch agent.
+
+[reference](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/tunnel-guide/local/#set-up-a-tunnel-locally-cli-setup)
 ```
 
-I use this to create the base notes I then refine them in [Obsidian](https://obsidian.md/).
+I use this to create the base notes and then refine them in [Obsidian](https://obsidian.md/).
