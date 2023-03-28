@@ -152,7 +152,9 @@ fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Not
         .next()
         .unwrap()
         .to_string()
-        .replace("# ", "");
+        .replace("#", "")
+        .trim()
+        .to_string();
     let content = response;
     let file = format!("{}.md", prompt.replace(" ", "_").to_lowercase());
     Note {
