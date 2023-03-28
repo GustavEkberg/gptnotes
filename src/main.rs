@@ -15,7 +15,6 @@ mod structs;
 
 #[derive(Debug)]
 struct Note {
-    title: String,
     content: String,
     file: String,
     url: Option<String>,
@@ -94,23 +93,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let category = matches.get_one::<String>("category");
 
     let full_prompt = generate_prompt(&prompt, &relevant_url).await;
+
+    println!("Sending prompt to ChatGPT");
+
     let response = request_chatgpt(&full_prompt, api_key).await?;
 
     let note = generate_note(response, &prompt, &relevant_url);
-    save_to_md_file(note, notes_folder, category).await.unwrap();
+    let file_path = save_to_md_file(note, notes_folder, category).await.unwrap();
 
+    println!("Note saved to file {}", file_path);
     Ok(())
 }
 
 async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
-    let mut full_prompt = format!(
-        "In markdown format, write summarizing notes, explaining how to do the following: \"{prompt}\""
-    );
+    let mut full_prompt =
+        format!("Write summarizing notes, explaining how to do the following: \"{prompt}\"");
 
     if let Some(url) = url {
+        println!("Scraping url for content");
         if let Some(content) = extract_url_content(url).await.unwrap() {
+            // Skip this once access to GPT4B is available
+            content.clone().truncate(450);
             full_prompt = format!(
-                "{full_prompt}. Use this information when creating the note, if relevant: --- {} ",
+                "{full_prompt}. Use this information when creating the note, if relevant: \"{}\". Use markdown formatting.",
                 content
             );
         } else {
@@ -158,7 +163,7 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
 }
 
 fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Note {
-    let title = response
+    let _title = response
         .lines()
         .next()
         .unwrap()
@@ -169,7 +174,6 @@ fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Not
     let content = response;
     let file = format!("{}.md", prompt.replace(" ", "_").to_lowercase());
     Note {
-        title,
         content,
         file,
         url: url.to_owned(),
@@ -180,7 +184,7 @@ async fn save_to_md_file(
     note: Note,
     notes_folder: String,
     category: Option<&String>,
-) -> std::io::Result<()> {
+) -> std::io::Result<String> {
     let file_path = if let Some(category) = category {
         create_dir_all(format!("{}/{}", notes_folder, category))
             .await
@@ -195,9 +199,9 @@ async fn save_to_md_file(
     let mut content = note.content;
 
     if let Some(url) = note.url {
-        content = format!("{}\n\nRelated URL: [{}]({})", content, note.title, url);
+        content = format!("{}\n\n[reference]({})", content, url);
     }
 
     file.write_all(content.as_bytes())?;
-    Ok(())
+    Ok(file_path)
 }
