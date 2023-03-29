@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
     let mut full_prompt =
-        format!("Write summarizing notes, explaining how to do the following: \"{prompt}\"");
+        format!("Write summarizing notes in markdown format, explaining how to do the following: \"{prompt}\"");
 
     if let Some(url) = url {
         println!("Scraping url for content");
@@ -93,7 +93,7 @@ async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
             // Skip this once access to GPT4B is available
             content.clone().truncate(450);
             full_prompt = format!(
-                "{full_prompt}. Use this information when creating the note, if relevant: \"{}\". Use markdown formatting.",
+                "{full_prompt}. Use this information when creating the note, if relevant: \"{}\".",
                 content
             );
         } else {
@@ -108,7 +108,7 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
           "model": "gpt-3.5-turbo",
           "messages": [{
             "role": "system",
-            "content": "You are a notetaking bot. You are summarizing taking notes in the markdown format.",
+            "content": "You are a notetaking service. You only write answers in the markdown format"
         },
         {
             "content": prompt,
