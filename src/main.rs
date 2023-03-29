@@ -80,7 +80,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let full_prompt = generate_prompt(&prompt, &relevant_url).await;
 
     println!("Sending prompt to ChatGPT");
-    println!("Prompt: {}", full_prompt.trim());
 
     let response = request_chatgpt(&full_prompt, api_key).await?;
 

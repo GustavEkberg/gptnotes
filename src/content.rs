@@ -1,5 +1,9 @@
 use reqwest::Client;
-use scraper::{ElementRef, Html, Selector};
+use scraper::{
+    ElementRef, Html,
+    Node::{self, Element, Text},
+    Selector,
+};
 use std::error::Error;
 
 pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Error>> {
@@ -9,22 +13,12 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
     let parsed_html = Html::parse_document(&html);
 
     let all_elements = parsed_html
-        .select(&Selector::parse("main div, span, article").unwrap())
+        .select(&Selector::parse("main, div, span, article").unwrap())
         .collect::<Vec<_>>();
     let mut max_text_len = 0;
     let mut main_content: Option<ElementRef> = None;
 
     for elem in &all_elements {
-        if has_class_or_id_name(elem, "footer")
-            || has_class_or_id_name(elem, "header")
-            || has_class_or_id_name(elem, "nav")
-            || has_class_or_id_name(elem, "sidebar")
-            || has_class_or_id_name(elem, "ad")
-            || has_class_or_id_name(elem, "advertisement")
-        {
-            continue;
-        }
-
         let children = elem.text().collect::<Vec<_>>();
         if !children.is_empty() {
             let total_text_len: usize = children.iter().map(|child| child.len()).sum();
@@ -36,17 +30,46 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
         }
     }
 
-    Ok(main_content.map(|elem| {
-        elem.text()
-            .collect::<Vec<_>>()
-            .join("\n")
-            .trim()
-            .to_string()
-    }))
-}
+    let excluded = vec!["nav", "footer", "header", "script", "style", "sidebar"];
 
-fn has_class_or_id_name(element: &ElementRef, name: &str) -> bool {
-    let class = element.value().attr("class").unwrap_or("");
-    let id = element.value().attr("id").unwrap_or("");
-    class.contains(name) || id.contains(name)
+    let mut result = Vec::new();
+
+    let element = main_content.unwrap();
+    let mut stack = vec![element.clone()];
+
+    while let Some(current) = stack.pop() {
+        for child in current.children() {
+            match child.value() {
+                scraper::Node::Element(el) => {
+                    if el.name() == "script" {
+                        continue;
+                    }
+                    let class = el.attr("class").unwrap_or("");
+                    let id = el.attr("id").unwrap_or("");
+
+                    if excluded
+                        .iter()
+                        .all(|&ex| !class.contains(ex) && !id.contains(ex))
+                    {
+                        if let Some(el_ref) = ElementRef::wrap(child.clone()) {
+                            stack.push(el_ref);
+                        }
+                    }
+                }
+                scraper::Node::Text(ref text_node) => {
+                    let trimmed = text_node.trim();
+                    if !trimmed.is_empty() {
+                        result.push(trimmed.to_string());
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    let result = result.join(" ");
+    if result.eq(" ") {
+        Ok(None)
+    } else {
+        Ok(Some(result))
+    }
 }
