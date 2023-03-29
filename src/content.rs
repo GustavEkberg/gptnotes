@@ -1,9 +1,5 @@
 use reqwest::Client;
-use scraper::{
-    ElementRef, Html,
-    Node::{self, Element, Text},
-    Selector,
-};
+use scraper::{ElementRef, Html, Selector};
 use std::error::Error;
 
 pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Error>> {
@@ -35,7 +31,7 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
     let mut result = Vec::new();
 
     let element = main_content.unwrap();
-    let mut stack = vec![element.clone()];
+    let mut stack = vec![element];
 
     while let Some(current) = stack.pop() {
         for child in current.children() {
@@ -51,7 +47,7 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
                         .iter()
                         .all(|&ex| !class.contains(ex) && !id.contains(ex))
                     {
-                        if let Some(el_ref) = ElementRef::wrap(child.clone()) {
+                        if let Some(el_ref) = ElementRef::wrap(child) {
                             stack.push(el_ref);
                         }
                     }

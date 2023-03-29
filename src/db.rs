@@ -25,7 +25,7 @@ pub async fn get_config() -> Result<Config, Box<dyn Error>> {
                 write(config_file_location, config.clone()).await?;
                 config
             }
-            _ => panic!("Error reading config file: {}", error),
+            _ => panic!("Error reading config file: {error}"),
         },
     };
 

@@ -55,11 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let notes_folder = config.notes_folder;
 
-    let relevant_url = if let Some(url) = matches.get_one::<String>("url") {
-        Some(url.to_string())
-    } else {
-        None
-    };
+    let relevant_url = matches.get_one::<String>("url").map(|url| url.to_string());
 
     let prompt = if let Some(prompt) = matches.get_one::<String>("prompt") {
         prompt.to_string()
@@ -86,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let note = generate_note(response, &prompt, &relevant_url);
     let file_path = save_to_md_file(note, notes_folder, category).await.unwrap();
 
-    println!("Note saved to file {}", file_path);
+    println!("Note saved to file {file_path}");
     Ok(())
 }
 
@@ -100,9 +96,7 @@ async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
             // Skip this once access to GPT4B is available
             let content = content.trim().replace("\n\n", "");
             full_prompt = format!(
-                "{full_prompt}. Use this information when creating the note, if relevant: \"{}\".",
-                content
-            );
+                "{full_prompt}. Use this information when creating the note, if relevant: \"{content}\".");
         } else {
             println!("Could not extract content from url");
         }
@@ -129,7 +123,7 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
     let response: GptResponse = client
         .post(chatgpt_api_url)
         .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", api_key).as_str())
+        .header("Authorization", format!("Bearer {api_key}").as_str())
         .body(request_body.to_string())
         .send()
         .await
@@ -147,17 +141,17 @@ async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String
         .clone())
 }
 
-fn generate_note(response: String, prompt: &String, url: &Option<String>) -> Note {
+fn generate_note(response: String, prompt: &str, url: &Option<String>) -> Note {
     let _title = response
         .lines()
         .next()
         .unwrap()
         .to_string()
-        .replace("#", "")
+        .replace('#', "")
         .trim()
         .to_string();
     let content = response;
-    let file = format!("{}.md", prompt.replace(" ", "_").to_lowercase());
+    let file = format!("{}.md", prompt.replace(' ', "_").to_lowercase());
     Note {
         content,
         file,
@@ -171,10 +165,10 @@ async fn save_to_md_file(
     category: Option<&String>,
 ) -> std::io::Result<String> {
     let file_path = if let Some(category) = category {
-        create_dir_all(format!("{}/{}", notes_folder, category))
+        create_dir_all(format!("{notes_folder}/{category}"))
             .await
             .unwrap();
-        format!("{}/{}/{}", notes_folder, category, note.file)
+        format!("{notes_folder}/{category}/{}", note.file)
     } else {
         format!("{}/{}", notes_folder, note.file)
     };
@@ -188,7 +182,7 @@ async fn save_to_md_file(
     let mut content = format!("{}\n", note.content);
 
     if let Some(url) = note.url {
-        content = format!("{}\n\n[reference]({})", content, url);
+        content = format!("{content}\n\n[reference]({url})");
     }
 
     file.write_all(content.as_bytes()).await?;
