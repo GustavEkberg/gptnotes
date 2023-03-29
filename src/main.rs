@@ -182,7 +182,7 @@ async fn save_to_md_file(
     let mut content = format!("{}\n", note.content);
 
     if let Some(url) = note.url {
-        content = format!("{content}\n\n[reference]({url})");
+        content = format!("{content}\n\n[reference]({url})\n-------\n");
     }
 
     file.write_all(content.as_bytes()).await?;
