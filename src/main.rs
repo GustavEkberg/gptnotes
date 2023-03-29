@@ -1,10 +1,8 @@
 use clap::{Arg, Command};
 use serde_json::json;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
 use structs::GptResponse;
-use tokio::fs::create_dir_all;
+use tokio::fs::{create_dir_all, OpenOptions};
+use tokio::io::AsyncWriteExt;
 
 use crate::content::extract_url_content;
 use crate::db::get_config;
@@ -39,40 +37,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .long("category")
                 .help("The category of the note being taken")
                 .required(false),
+            // Arg::new("append")
+            //     .long("append")
+            //     .help("Append to an existing note if it exists. Default: false")
+            //     .default_value("false"),
         ])
         .get_matches();
 
     let config = get_config().await?;
 
-    let api_key = config.api_key;
-
-    if api_key.is_none() {
+    let api_key = if let Some(api_key) = config.api_key {
+        api_key
+    } else {
         println!("Please set the api_key in ~/.gptnotes.json before taking any notes");
         return Ok(());
-    }
-
-    let api_key = api_key.unwrap();
+    };
 
     let notes_folder = config.notes_folder;
 
-    let prompt = matches.get_one::<String>("prompt");
     let relevant_url = if let Some(url) = matches.get_one::<String>("url") {
         Some(url.to_string())
     } else {
         None
     };
 
-    if prompt.is_none() {
+    let prompt = if let Some(prompt) = matches.get_one::<String>("prompt") {
+        prompt.to_string()
+    } else {
         println!("Please provide a prompt");
         return Ok(());
-    }
-    let prompt = prompt.unwrap();
+    };
 
     let category = matches.get_one::<String>("category");
+
+    // Cannot use a boolean value generated from Clap, dont' know why
+    // let append = if let Some(append) = matches.get_one::<String>("append") {
+    //     append.eq("true")
+    // } else {
+    //     false
+    // };
 
     let full_prompt = generate_prompt(&prompt, &relevant_url).await;
 
     println!("Sending prompt to ChatGPT");
+    println!("Prompt: {}", full_prompt.trim());
 
     let response = request_chatgpt(&full_prompt, api_key).await?;
 
@@ -91,7 +99,7 @@ async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
         println!("Scraping url for content");
         if let Some(content) = extract_url_content(url).await.unwrap() {
             // Skip this once access to GPT4B is available
-            content.clone().truncate(450);
+            let content = content.trim().replace("\n\n", "");
             full_prompt = format!(
                 "{full_prompt}. Use this information when creating the note, if relevant: \"{}\".",
                 content
@@ -171,15 +179,19 @@ async fn save_to_md_file(
     } else {
         format!("{}/{}", notes_folder, note.file)
     };
-    let path = Path::new(&file_path);
-    let mut file = File::create(&path)?;
 
-    let mut content = note.content;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&file_path)
+        .await?;
+
+    let mut content = format!("{}\n", note.content);
 
     if let Some(url) = note.url {
         content = format!("{}\n\n[reference]({})", content, url);
     }
 
-    file.write_all(content.as_bytes())?;
+    file.write_all(content.as_bytes()).await?;
     Ok(file_path)
 }

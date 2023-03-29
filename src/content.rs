@@ -15,6 +15,16 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
     let mut main_content: Option<ElementRef> = None;
 
     for elem in &all_elements {
+        if has_class_or_id_name(elem, "footer")
+            || has_class_or_id_name(elem, "header")
+            || has_class_or_id_name(elem, "nav")
+            || has_class_or_id_name(elem, "sidebar")
+            || has_class_or_id_name(elem, "ad")
+            || has_class_or_id_name(elem, "advertisement")
+        {
+            continue;
+        }
+
         let children = elem.text().collect::<Vec<_>>();
         if !children.is_empty() {
             let total_text_len: usize = children.iter().map(|child| child.len()).sum();
@@ -33,4 +43,10 @@ pub async fn extract_url_content(url: &str) -> Result<Option<String>, Box<dyn Er
             .trim()
             .to_string()
     }))
+}
+
+fn has_class_or_id_name(element: &ElementRef, name: &str) -> bool {
+    let class = element.value().attr("class").unwrap_or("");
+    let id = element.value().attr("id").unwrap_or("");
+    class.contains(name) || id.contains(name)
 }
