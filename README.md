@@ -3,7 +3,7 @@
 I love having notes.  
 I hate taking notes.
 
-This cli takes a prompt and generates a note with ChatGTP based on a `prompt`.   
+**gptnotes** generates a note with ChatGTP based on a `prompt`.   
 A `url` can be included to be scraped, and the contnet will ba added as a refernece to a prompt.
 
 The notes are stored in markdown format in the folder set with `notes_path`.
