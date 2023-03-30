@@ -1,13 +1,12 @@
 use clap::{Arg, Command};
+use content_scraper::extract_url_content;
 use serde_json::json;
 use structs::GptResponse;
 use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
-use crate::content::extract_url_content;
 use crate::db::get_config;
 
-mod content;
 mod db;
 mod structs;
 
