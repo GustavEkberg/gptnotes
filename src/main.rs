@@ -2,6 +2,7 @@ use clap::{Arg, Command};
 use content_scraper::extract_url_content;
 use serde_json::json;
 use structs::GptResponse;
+use tiktoken_rs::p50k_base;
 use tokio::fs::{create_dir_all, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
@@ -74,8 +75,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let full_prompt = generate_prompt(&prompt, &relevant_url).await;
 
-    println!("Sending prompt to ChatGPT");
-
     let response = request_chatgpt(&full_prompt, api_key).await?;
 
     let note = generate_note(response, &prompt, &relevant_url);
@@ -104,6 +103,16 @@ async fn generate_prompt(prompt: &String, url: &Option<String>) -> String {
 }
 
 async fn request_chatgpt(prompt: &str, api_key: String) -> Result<String, String> {
+    let mut prompt = prompt.to_string();
+    let bpe = p50k_base().unwrap();
+    let tokens = bpe.encode_with_special_tokens(prompt.as_str());
+    if tokens.len() > 3024 {
+        println!("Prompt too long, shortening a bit");
+        prompt.truncate(11000);
+    }
+
+    println!("Sending prompt to ChatGPT");
+
     let request_body = json!({
           "model": "gpt-3.5-turbo",
           "messages": [{
@@ -181,7 +190,7 @@ async fn save_to_md_file(
     let mut content = format!("{}\n", note.content);
 
     if let Some(url) = note.url {
-        content = format!("{content}\n\n[reference]({url})\n-------\n");
+        content = format!("{content}\n\n[reference]({url})\n\n--------\n\n");
     }
 
     file.write_all(content.as_bytes()).await?;
